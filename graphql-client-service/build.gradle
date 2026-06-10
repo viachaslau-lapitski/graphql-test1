@@ -1,0 +1,16 @@
+/*
+ * graphql-client-service — GraphQL Client Demo
+ *
+ * Responsibilities:
+ *   - Demonstrates how a Spring Boot service can act as a GraphQL CLIENT
+ *   - Exposes a REST API that internally calls market-data-service via GraphQL
+ *   - Uses Spring's RestClient (Spring Boot 3.2+) to POST GraphQL queries over HTTP —
+ *     fully synchronous, no WebFlux/Reactor needed, clean on the Servlet stack
+ *
+ * Port: 8083
+ */
+dependencies {
+    // REST controller stack — also provides RestClient for outbound GraphQL HTTP requests
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+}
+

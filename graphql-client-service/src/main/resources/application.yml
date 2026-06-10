@@ -1,0 +1,23 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: graphql-client-service
+
+  # ── Virtual Threads (Java 21 + Spring Boot 3.2+) ───────────────────────────
+  threads:
+    virtual:
+      enabled: true
+
+# ── Market Data Service target ────────────────────────────────────────────────
+# The GraphQL endpoint of market-data-service that this client queries.
+# Override with -Dmarket-data.graphql-url=... if the service runs on a different host/port.
+market-data:
+  graphql-url: http://localhost:8081/graphql
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+logging:
+  level:
+    com.example.graphqlclient: DEBUG
+    org.springframework.graphql: DEBUG   # shows outgoing GraphQL requests/responses

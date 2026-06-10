@@ -15,3 +15,4 @@ rootProject.name = 'graphql-showcase'
 
 include 'market-data-service'   // subgraph: stocks, price history, subscriptions
 include 'order-service'         // subgraph: orders, portfolio (references Stock via federation)
+include 'graphql-client-service' // demo GraphQL client — queries market-data-service via HttpGraphQlClient
