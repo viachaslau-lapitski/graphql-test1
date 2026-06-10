@@ -39,4 +39,5 @@ telemetry:
       mode: spec_compliant
   exporters:
     logging:
-      enabled: true
+      stdout:
+        enabled: true
