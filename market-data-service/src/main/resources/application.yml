@@ -59,8 +59,12 @@ spring:
     # GraphiQL uses the graphql-ws protocol over WebSocket; this configures the endpoint.
     # Without this, GraphiQL's subscription attempts produce {errors:[{isTrusted:true}]}
     # (a serialised browser WebSocket error event, meaning the connection was refused).
+    #
+    # IMPORTANT: must be /graphql (same as the HTTP endpoint path) — Spring for GraphQL
+    # distinguishes HTTP vs WebSocket by protocol, not by path. GraphiQL defaults its
+    # subscriptionUrl to ws://<host>/graphql; using any other path breaks GraphiQL.
     websocket:
-      path: /graphql-ws
+      path: /graphql
 
     # Enables built-in Micrometer observations for GraphQL.
     # This automatically records:
