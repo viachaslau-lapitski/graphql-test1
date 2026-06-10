@@ -1,0 +1,64 @@
+server:
+  port: 8082
+
+spring:
+  # ── Virtual Threads (Java 21 + Spring Boot 3.2+) ───────────────────────────
+  # Project Loom virtual threads — one lightweight thread per request, zero config.
+  threads:
+    virtual:
+      enabled: true
+
+  application:
+    name: order-service
+
+  # ── H2 In-Memory Database ──────────────────────────────────────────────────
+  datasource:
+    url: jdbc:h2:mem:orderdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true               # See the SQL queries in the log — great for N+1 demo
+    properties:
+      hibernate:
+        format_sql: true
+
+  # H2 console: http://localhost:8082/h2-console
+  # JDBC URL: jdbc:h2:mem:orderdb
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  # ── Spring for GraphQL ─────────────────────────────────────────────────────
+  graphql:
+    graphiql:
+      enabled: true
+
+    # Micrometer observations for GraphQL requests and data fetchers
+    observation:
+      enabled: true
+
+# ── Spring Boot Actuator (Observability) ────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+logging:
+  level:
+    com.example.orders: DEBUG
+    org.springframework.graphql: INFO
+    org.hibernate.SQL: DEBUG

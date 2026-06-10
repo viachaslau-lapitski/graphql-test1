@@ -1,0 +1,25 @@
+/*
+ * market-data-service — Apollo Federation Subgraph #1
+ *
+ * Responsibilities:
+ *   - Exposes the Stock entity (the @key is "symbol")
+ *   - Provides price history for stocks
+ *   - Publishes real-time price updates via GraphQL Subscriptions (SSE)
+ *
+ * Port: 8081
+ */
+dependencies {
+    // Servlet stack (WebMVC) for standard HTTP + GraphQL over HTTP
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+
+    // WebFlux is added so we can use Reactor types (Flux<T>, Mono<T>) in
+    // @SubscriptionMapping methods. Spring Boot will still use the Servlet stack
+    // because spring-boot-starter-web is also present — WebFlux just contributes
+    // the reactor-core library and SSE subscription transport.
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+
+    // WebSocket support for GraphQL subscriptions on the Servlet stack.
+    // GraphiQL uses the graphql-ws protocol over WebSocket; without this
+    // the browser fires a WebSocket error event instead of receiving data.
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
+}

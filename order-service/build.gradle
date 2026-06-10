@@ -1,0 +1,13 @@
+/*
+ * order-service — Apollo Federation Subgraph #2
+ *
+ * Responsibilities:
+ *   - Manages stock Orders (BUY/SELL)
+ *   - References Stock from market-data-service via Apollo Federation (@key)
+ *   - Demonstrates the DataLoader / N+1 batching pattern with @BatchMapping
+ *
+ * Port: 8082
+ */
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+}

@@ -1,0 +1,17 @@
+/*
+ * Multi-module Gradle project setup.
+ *
+ * We split the application into two separate Spring Boot services to demonstrate
+ * Apollo Federation — each service is an independent "subgraph" with its own schema.
+ * The Apollo Router (in docker-compose) stitches them into a unified supergraph.
+ */
+
+plugins {
+    // Automatically downloads the JDK toolchain if needed
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '1.0.0'
+}
+
+rootProject.name = 'graphql-showcase'
+
+include 'market-data-service'   // subgraph: stocks, price history, subscriptions
+include 'order-service'         // subgraph: orders, portfolio (references Stock via federation)

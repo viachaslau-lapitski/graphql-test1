@@ -1,0 +1,95 @@
+server:
+  port: 8081
+
+spring:
+  # ── Virtual Threads (Java 21 + Spring Boot 3.2+) ───────────────────────────
+  # Project Loom's virtual threads replace OS threads with lightweight JVM threads.
+  # Each GraphQL request / data-fetcher call gets its own virtual thread — no thread
+  # pool exhaustion, better throughput for I/O-heavy resolvers with zero code change.
+  threads:
+    virtual:
+      enabled: true
+
+  # ── Web Application Type ────────────────────────────────────────────────────
+  # With both spring-boot-starter-web AND spring-boot-starter-webflux on the
+  # classpath (we need webflux for Reactor Flux in subscriptions), Spring Boot
+  # would normally switch to reactive mode. Force SERVLET mode so GraphiQL works.
+  main:
+    web-application-type: servlet
+
+  application:
+    name: market-data-service
+
+  # ── H2 In-Memory Database ──────────────────────────────────────────────────
+  # H2 is a pure-Java embedded database — no installation needed.
+  # "create-drop" means: create schema on startup, drop it on shutdown.
+  # Perfect for demos: fresh state on every run.
+  datasource:
+    url: jdbc:h2:mem:marketdata;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop          # auto-generates tables from @Entity classes
+    show-sql: true                   # DEMO: prints every SQL to the log — great for understanding what's happening
+    properties:
+      hibernate:
+        format_sql: true             # pretty-print the SQL
+
+  # H2 browser console — useful for inspecting the in-memory database
+  # URL: http://localhost:8081/h2-console
+  # JDBC URL: jdbc:h2:mem:marketdata
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  # ── Spring for GraphQL ─────────────────────────────────────────────────────
+  graphql:
+    # GraphiQL — built-in browser-based GraphQL IDE (powered by GraphiQL React app).
+    # Navigate to http://localhost:8081/graphiql to explore the schema interactively.
+    # Beginners: this is the primary way to experiment with queries in this demo.
+    graphiql:
+      enabled: true
+
+    # WebSocket subscription transport — required for Subscriptions on the Servlet stack.
+    # GraphiQL uses the graphql-ws protocol over WebSocket; this configures the endpoint.
+    # Without this, GraphiQL's subscription attempts produce {errors:[{isTrusted:true}]}
+    # (a serialised browser WebSocket error event, meaning the connection was refused).
+    websocket:
+      path: /graphql-ws
+
+    # Enables built-in Micrometer observations for GraphQL.
+    # This automatically records:
+    #   - graphql.request: timing for each complete GraphQL execution
+    #   - graphql.datafetcher: timing for each individual field resolver
+    # View them at: GET http://localhost:8081/actuator/metrics/graphql.request
+    observation:
+      enabled: true
+
+# ── Spring Boot Actuator (Observability) ────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        # Expose health, metrics, and Prometheus scrape endpoint.
+        # In production, restrict this — don't expose /actuator/env or /actuator/beans.
+        include: health, info, metrics, prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    tags:
+      # Add application name tag to all metrics — useful in Prometheus/Grafana
+      # to distinguish metrics from market-data-service vs order-service
+      application: ${spring.application.name}
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+logging:
+  level:
+    com.example.marketdata: DEBUG    # our code: verbose for demo purposes
+    org.springframework.graphql: INFO
+    org.hibernate.SQL: DEBUG         # same as show-sql but goes to log file

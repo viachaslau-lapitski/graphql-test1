@@ -1,0 +1,76 @@
+# ── Apollo Federation subgraph schema for order-service ───────────────────────
+# Imports @key and @external directives from the Federation v2 specification.
+# @key      — marks a type as a federation entity with a specified primary key
+# @external — marks a field that is defined in another subgraph (used in @key types)
+extend schema
+    @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+
+scalar BigDecimal
+scalar DateTime
+
+# ── Enums ──────────────────────────────────────────────────────────────────────
+# GraphQL enums are serialized as strings in JSON: "BUY", "SELL", "OPEN", etc.
+# Java enum → GraphQL enum mapping is handled automatically by Spring for GraphQL.
+
+enum OrderType {
+    BUY
+    SELL
+}
+
+enum OrderStatus {
+    PENDING    # received but not yet on the exchange
+    OPEN       # active on the exchange, waiting for a match
+    FILLED     # executed — shares were traded
+    CANCELLED  # cancelled before execution
+}
+
+# ── Stock (Federation Stub) ────────────────────────────────────────────────────
+# Stock is an entity type in market-data-service. Here in order-service we
+# declare a "stub" with just the @key field (symbol).
+#
+# When a client queries Order.stock through the Apollo Router, the router:
+#   1. Reads the symbol from order-service's Order response
+#   2. Sends an _entities query to market-data-service to get the full Stock
+#   3. Merges the result back into the response
+#
+# This is Apollo Federation in action — transparent cross-service joins!
+type Stock @key(fields: "symbol") {
+    symbol: String!
+    # Note: no other fields here — they live in market-data-service's schema.
+    # The Router composes both schemas into a unified supergraph automatically.
+}
+
+# ── Order Type ─────────────────────────────────────────────────────────────────
+type Order {
+    id: ID!
+
+    # The stock ticker — this is the link to the Stock entity in market-data-service
+    symbol: String!
+
+    type: OrderType!
+    quantity: Int!
+
+    # Nullable! Not all orders have a limit price (market orders don't)
+    limitPrice: BigDecimal
+
+    status: OrderStatus!
+    createdAt: DateTime!
+
+    # The `stock` field triggers Apollo Federation:
+    # order-service provides the symbol, market-data-service provides the rest.
+    # @BatchMapping in StockBatchController ensures this is resolved efficiently (no N+1).
+    stock: Stock!
+}
+
+# ── Query Type ─────────────────────────────────────────────────────────────────
+type Query {
+    # Fetch orders, optionally filtered by status.
+    # Try:  { orders(status: OPEN) { id symbol quantity } }
+    # Try:  { orders { id symbol type status } }
+    orders(status: OrderStatus): [Order!]!
+
+    # Fetch a single order by its ID.
+    # Returns null if not found (nullable return type — no `!` suffix).
+    # Try: { order(id: "ORD-006") { symbol quantity status stock { symbol } } }
+    order(id: ID!): Order
+}

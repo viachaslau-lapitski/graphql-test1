@@ -1,0 +1,77 @@
+/*
+ * Root build file — applies common configuration to ALL subprojects.
+ *
+ * Both services share the same Spring Boot version, Java toolchain,
+ * and a baseline set of dependencies. Each service's build.gradle
+ * adds only what's specific to that service.
+ */
+
+plugins {
+    id 'org.springframework.boot' version '3.5.0' apply false
+    id 'io.spring.dependency-management' version '1.1.7' apply false
+}
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'org.springframework.boot'
+    apply plugin: 'io.spring.dependency-management'
+
+    group = 'com.example'
+    version = '0.0.1-SNAPSHOT'
+
+    // Use Java 21 (LTS). Gradle toolchain ensures the right JDK is used
+    // regardless of what's installed on the machine.
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(21)
+        }
+    }
+
+    repositories {
+        mavenCentral()
+    }
+
+    dependencies {
+        // ── GraphQL ──────────────────────────────────────────────────────────
+        // Spring for GraphQL 1.4 (bundled with Spring Boot 3.5).
+        // Provides @QueryMapping, @SchemaMapping, @BatchMapping, @SubscriptionMapping,
+        // Apollo Federation support, built-in GraphiQL IDE, and Micrometer observations.
+        implementation 'org.springframework.boot:spring-boot-starter-graphql'
+
+        // ── Persistence ──────────────────────────────────────────────────────
+        // Spring Data JPA + Hibernate. H2 is an in-memory DB — zero setup required.
+        implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+        runtimeOnly 'com.h2database:h2'
+
+        // ── Observability ─────────────────────────────────────────────────────
+        // Spring Boot Actuator exposes /actuator/health, /actuator/metrics, etc.
+        // Spring for GraphQL 1.4 automatically registers Micrometer observations
+        // for GraphQL requests and data-fetcher timings when Actuator is on classpath.
+        implementation 'org.springframework.boot:spring-boot-starter-actuator'
+        // Prometheus registry — exposes metrics in Prometheus format at /actuator/prometheus
+        implementation 'io.micrometer:micrometer-registry-prometheus'
+
+        // ── Custom Scalars ────────────────────────────────────────────────────
+        // GraphQL's built-in scalars (String, Int, Float, Boolean, ID) are not
+        // enough for a financial domain. This library adds BigDecimal, DateTime, etc.
+        // BigDecimal is critical — never use Float for monetary values!
+        implementation 'com.graphql-java:graphql-java-extended-scalars:22.0'
+
+        // ── Apollo Federation ─────────────────────────────────────────────────
+        // Required for FederationSchemaFactory, which transforms the schema to
+        // support @key, @link, @external, and _entities/_service meta-fields.
+        // Spring for GraphQL 1.4 was validated against federation-graphql-java-support 5.3.0.
+        implementation 'com.apollographql.federation:federation-graphql-java-support:5.3.0'
+
+        // ── Testing ───────────────────────────────────────────────────────────
+        testImplementation 'org.springframework.boot:spring-boot-starter-test'
+        // @GraphQlTest — slice test that only loads the GraphQL layer (like @WebMvcTest).
+        testImplementation 'org.springframework.graphql:spring-graphql-test'
+    }
+
+    test {
+        useJUnitPlatform()
+        // Mockito's inline (ByteBuddy) mock maker requires dynamic agent loading on Java 21+
+        jvmArgs '-XX:+EnableDynamicAgentLoading', '-Xshare:off'
+    }
+}

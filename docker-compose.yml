@@ -1,0 +1,107 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# docker-compose.yml — Full GraphQL showcase stack
+#
+# Services:
+#   market-data-service   Spring Boot subgraph #1 (port 8081)
+#   order-service         Spring Boot subgraph #2 (port 8082)
+#   apollo-router         Federation gateway — stitches both schemas (port 4000)
+#
+# Optional monitoring stack (start with: docker compose --profile monitoring up):
+#   prometheus            Scrapes /actuator/prometheus from both services
+#   grafana               Visualizes metrics (pre-configured dashboards)
+#
+# Prerequisites:
+#   - Docker Desktop or Docker Engine with Compose v2
+#   - Java 21 installed (for building the JARs)
+#
+# Quick start:
+#   1. Build the JARs:
+#      ./gradlew :market-data-service:bootJar :order-service:bootJar
+#   2. Start everything:
+#      docker compose up
+#   3. Open: http://localhost:4000 (Apollo Router — unified supergraph)
+#            http://localhost:8081/graphiql (market-data-service alone)
+#            http://localhost:8082/graphiql (order-service alone)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+services:
+
+  # ── Subgraph 1: Market Data Service ──────────────────────────────────────────
+  market-data-service:
+    build:
+      context: market-data-service
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── Subgraph 2: Order Service ─────────────────────────────────────────────────
+  order-service:
+    build:
+      context: order-service
+      dockerfile: Dockerfile
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── Apollo Router — Federation Gateway ───────────────────────────────────────
+  # The router composes both subgraph schemas into one unified supergraph.
+  # Clients query a SINGLE endpoint; the router plans and orchestrates subgraph calls.
+  #
+  # router.yaml         — router configuration
+  # supergraph.graphql  — pre-composed supergraph schema (see README for how to regenerate)
+  apollo-router:
+    image: ghcr.io/apollographql/router:v1.55.0
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./router.yaml:/dist/config/router.yaml
+      - ./supergraph.graphql:/dist/schema/supergraph.graphql
+    command: >
+      --config /dist/config/router.yaml
+      --supergraph /dist/schema/supergraph.graphql
+    depends_on:
+      market-data-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # Optional monitoring stack — start with: docker compose --profile monitoring up
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    profiles: [monitoring]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=7d'
+
+  grafana:
+    image: grafana/grafana:11.0.0
+    profiles: [monitoring]
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: demo
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning

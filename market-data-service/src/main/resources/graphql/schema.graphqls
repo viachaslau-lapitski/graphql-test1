@@ -1,0 +1,110 @@
+# ── Apollo Federation subgraph schema ─────────────────────────────────────────
+# This line declares this service as an Apollo Federation v2 subgraph.
+# It imports the @key directive, which marks entity types that can be
+# referenced (and joined) by other subgraphs through the Apollo Router.
+extend schema
+    @link(url: "https://specs.apollo.dev/federation/v2.0", import: ["@key"])
+
+# ── Custom Scalars ─────────────────────────────────────────────────────────────
+# GraphQL's built-in scalars: String, Int, Float, Boolean, ID
+# These are NOT enough for financial data. We add:
+#
+# BigDecimal — exact decimal numbers for prices and monetary values.
+#              Never use Float for money (binary floating point is imprecise)!
+# DateTime   — ISO-8601 timestamps: "2025-06-09T14:30:00"
+#
+# These are registered with real implementations in GraphQlConfig.java.
+scalar BigDecimal
+scalar DateTime
+
+# ── Stock Type ─────────────────────────────────────────────────────────────────
+# @key(fields: "symbol") is an Apollo Federation directive.
+# It tells the Router: "A Stock entity in this subgraph is uniquely identified
+# by its `symbol` field."
+#
+# This enables OTHER subgraphs (like order-service) to reference a Stock using
+# only its symbol, and the Router will fetch the full Stock data from HERE.
+#
+# Think of @key like a foreign key in a database — but across services.
+type Stock @key(fields: "symbol") {
+    # The ticker symbol is both the primary key and the federation @key field.
+    # The `!` means non-nullable — this field is always present.
+    symbol: String!
+
+    name: String!
+
+    # Which stock exchange lists this stock (e.g. "NYSE", "NASDAQ")
+    exchange: String!
+
+    # Current market price. We use our custom BigDecimal scalar (not Float!)
+    currentPrice: BigDecimal!
+
+    currency: String!
+
+    # Can be null — some stocks may not have market cap data available
+    marketCap: BigDecimal
+
+    # Nested field: price history records for this stock.
+    # UNDER-FETCHING SOLUTION: A single GraphQL query can fetch both the stock
+    # AND its price history, eliminating the need for a second HTTP request.
+    #
+    # The `limit` argument lets clients control how many records they need.
+    # Default is 10. This argument is resolved in StockController.priceHistory()
+    priceHistory(limit: Int = 10): [PriceHistory!]!
+}
+
+# ── PriceHistory Type ──────────────────────────────────────────────────────────
+# Represents a price snapshot at a point in time.
+# This type is only accessible as a nested field of Stock — it cannot be
+# queried directly. This is intentional: price history only makes sense
+# in the context of a specific stock.
+type PriceHistory {
+    price: BigDecimal!
+    timestamp: DateTime!
+    # Positive = price increased, negative = price decreased (as a percentage)
+    changePercent: Float!
+}
+
+# ── StockSummary Type ──────────────────────────────────────────────────────────
+# A lightweight view of a Stock with only the most essential fields.
+# Used to demonstrate @ProjectedPayload / Spring Data interface projections.
+# Querying stockSummaries{} generates a SQL SELECT with only 3 columns.
+type StockSummary {
+    symbol: String!
+    name: String!
+    currentPrice: BigDecimal!
+}
+
+# ── Query Type ─────────────────────────────────────────────────────────────────
+# The Query type defines all the read operations this service exposes.
+# Each field here maps to a @QueryMapping method in StockController.
+type Query {
+    # Returns all stocks, optionally filtered by exchange and/or paginated.
+    # Try: { stocks(exchange: "NASDAQ") { symbol currentPrice } }
+    # Try: { stocks(limit: 3) { symbol name } }
+    # Omit args to get all: { stocks { symbol name exchange } }
+    stocks(exchange: String, limit: Int): [Stock!]!
+
+    # Returns a single stock by symbol. Returns null if not found.
+    # Try: { stock(symbol: "AAPL") { name currentPrice } }
+    stock(symbol: String!): Stock
+
+    # Projection demo — returns only symbol, name, currentPrice from the DB.
+    # See StockSummary type and StockController.stockSummaries() for explanation.
+    stockSummaries: [StockSummary!]!
+}
+
+# ── Subscription Type ──────────────────────────────────────────────────────────
+# Subscriptions are the third GraphQL operation type (after query and mutation).
+# They establish a long-lived connection for real-time data push.
+#
+# Each subscription field maps to a @SubscriptionMapping method that returns
+# a reactive Flux<T> stream.
+#
+# Transport: Spring for GraphQL uses Server-Sent Events (SSE) over HTTP.
+# The client connects once; the server pushes new PriceHistory events as they occur.
+type Subscription {
+    # Subscribe to real-time price updates for a specific stock.
+    # Try in GraphiQL: subscription { priceUpdated(symbol: "AAPL") { price changePercent } }
+    priceUpdated(symbol: String!): PriceHistory!
+}

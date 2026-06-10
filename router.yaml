@@ -1,0 +1,42 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# router.yaml — Apollo Router configuration
+#
+# The Apollo Router is the federation gateway that:
+#   1. Receives all client GraphQL requests
+#   2. Plans which subgraphs to call and in what order
+#   3. Stitches the results back together for the client
+#
+# For full config reference: https://www.apollographql.com/docs/router/configuration/overview
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Subgraph endpoints — these must match what's in supergraph.graphql
+supergraph:
+  listen: 0.0.0.0:4000
+  # Introspection lets clients (like Apollo Studio, GraphiQL, Postman) discover the schema
+  introspection: true
+
+# Enable the built-in GraphQL sandbox/explorer for browser-based testing
+sandbox:
+  enabled: true
+
+# CORS — allow browser clients to call the router from any origin (for demo purposes).
+# In production: restrict origins!
+cors:
+  allow_any_origin: true
+
+# Query planning — the router generates a "query plan" showing which subgraphs
+# to call for each part of the query. Enable this header for debugging:
+headers:
+  all:
+    request:
+      - propagate:
+          matching: ".*"  # propagate all request headers to subgraphs
+
+# Telemetry — router-level observability
+telemetry:
+  instrumentation:
+    spans:
+      mode: spec_compliant
+  exporters:
+    logging:
+      enabled: true

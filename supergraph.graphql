@@ -1,0 +1,104 @@
+schema
+  @link(url: "https://specs.apollo.dev/link/v1.0")
+  @link(url: "https://specs.apollo.dev/join/v0.3", for: EXECUTION)
+{
+  query: Query
+  subscription: Subscription
+}
+
+directive @join__enumValue(graph: join__Graph!) repeatable on ENUM_VALUE
+directive @join__field(graph: join__Graph, requires: join__FieldSet, provides: join__FieldSet, type: String, external: Boolean, override: String, usedOverridden: Boolean) repeatable on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
+directive @join__graph(name: String!, url: String!) on ENUM_VALUE
+directive @join__implements(graph: join__Graph!, interface: String!) repeatable on OBJECT | INTERFACE
+directive @join__type(graph: join__Graph!, key: join__FieldSet, extension: Boolean! = false, resolvable: Boolean! = true, isInterfaceObject: Boolean! = false) repeatable on OBJECT | INTERFACE | UNION | ENUM | INPUT_OBJECT | SCALAR
+directive @join__unionMember(graph: join__Graph!, member: String!) repeatable on UNION
+directive @link(url: String, as: String, for: link__Purpose, import: [link__Import]) repeatable on SCHEMA
+
+scalar BigDecimal
+  @join__type(graph: MARKET_DATA)
+  @join__type(graph: ORDERS)
+
+scalar DateTime
+  @join__type(graph: MARKET_DATA)
+  @join__type(graph: ORDERS)
+
+scalar join__FieldSet
+scalar link__Import
+enum join__Graph {
+  MARKET_DATA @join__graph(name: "market-data", url: "http://market-data-service:8081/graphql")
+  ORDERS @join__graph(name: "orders", url: "http://order-service:8082/graphql")
+}
+enum link__Purpose {
+  SECURITY
+  EXECUTION
+}
+
+enum OrderStatus
+  @join__type(graph: ORDERS)
+{
+  PENDING @join__enumValue(graph: ORDERS)
+  OPEN @join__enumValue(graph: ORDERS)
+  FILLED @join__enumValue(graph: ORDERS)
+  CANCELLED @join__enumValue(graph: ORDERS)
+}
+
+enum OrderType
+  @join__type(graph: ORDERS)
+{
+  BUY @join__enumValue(graph: ORDERS)
+  SELL @join__enumValue(graph: ORDERS)
+}
+
+type Order
+  @join__type(graph: ORDERS)
+{
+  id: ID!
+  symbol: String!
+  type: OrderType!
+  quantity: Int!
+  limitPrice: BigDecimal
+  status: OrderStatus!
+  createdAt: DateTime!
+  stock: Stock!
+}
+
+type PriceHistory
+  @join__type(graph: MARKET_DATA)
+{
+  price: BigDecimal!
+  timestamp: DateTime!
+  changePercent: Float!
+}
+
+type Query {
+  stocks(exchange: String): [Stock!]! @join__field(graph: MARKET_DATA)
+  stock(symbol: String!): Stock @join__field(graph: MARKET_DATA)
+  stockSummaries: [StockSummary!]! @join__field(graph: MARKET_DATA)
+  orders(status: OrderStatus): [Order!]! @join__field(graph: ORDERS)
+  order(id: ID!): Order @join__field(graph: ORDERS)
+}
+
+type Stock
+  @join__type(graph: MARKET_DATA, key: "symbol")
+  @join__type(graph: ORDERS, key: "symbol")
+{
+  symbol: String!
+  name: String! @join__field(graph: MARKET_DATA)
+  exchange: String! @join__field(graph: MARKET_DATA)
+  currentPrice: BigDecimal! @join__field(graph: MARKET_DATA)
+  currency: String! @join__field(graph: MARKET_DATA)
+  marketCap: BigDecimal @join__field(graph: MARKET_DATA)
+  priceHistory(limit: Int = 10): [PriceHistory!]! @join__field(graph: MARKET_DATA)
+}
+
+type StockSummary
+  @join__type(graph: MARKET_DATA)
+{
+  symbol: String!
+  name: String!
+  currentPrice: BigDecimal!
+}
+
+type Subscription {
+  priceUpdated(symbol: String!): PriceHistory! @join__field(graph: MARKET_DATA)
+}
